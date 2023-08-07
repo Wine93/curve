@@ -178,9 +178,10 @@ struct RefreshDataOption {
 // { vfs option
 
 struct PermissionOption {
-    std::string users;
-    std::string groups;
+    uint32_t uid;
+    std::vector<uint32_t> gids;
     uint16_t umask;
+    bool needCheck;
     // XXX
 };
 

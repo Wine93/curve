@@ -66,6 +66,8 @@ class VFS {
  public:
     VFS() = default;
 
+    int SetPermission(uint32_t uid, const std::vector<uint32_t>& gids, uint16_t umask, bool needCheck);
+
     // NOTE: |cfg| include all configures for client.conf
     int Mount(const std::string& fsname,
               const std::string& mountpoint,
@@ -102,6 +104,8 @@ class VFS {
 
     int FStat(int fd, struct stat* stat);
 
+    int SetOwner(const std::string &path, uint32_t uid, uint32_t gid);
+
  private:
     CURVEFS_ERROR Lookup(const std::string& pathname,
                          bool followSymlink,
@@ -113,6 +117,8 @@ class VFS {
     std::shared_ptr<Permission> permission_;
     std::shared_ptr<FileHandlers> handlers_;
     std::shared_ptr<Cache> cache_;
+    uint32_t uid_;
+    std::vector<std::string> gids_;
 };
 
 }  // namespace vfs

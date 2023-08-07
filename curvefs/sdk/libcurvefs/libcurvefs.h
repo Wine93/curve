@@ -33,14 +33,36 @@
 
 #include "curvefs/src/client/vfs/vfs.h"
 #include "curvefs/src/client/vfs/config.h"
+#include "curvefs/sdk/libcurvefs/guid.h"
 
+std::map<std::string, std::vector<CurveFSMount>> activefs;
 struct CurveFSMount {
-    CurveFSMount() :
+    CurveFSMount(unint32_t uid, std::vector<uint32_t> gids) :
         cfg(Configure::Default()),
         vfs(std::make_shared<VFS>()) {}
 
+    bool checkPermission();
+    bool isSuperUser(const std::string user, const std::vector<std::string> groups);
+    uint32_t lookupUid(std::string user);
+    uint32_t lookupGid(std::string group);
+    std::vector<uint32_t> lookupGids(std::string groups);
+
+    uint32_t Uid() { return uid_; }
+    uint32_t Gid() { return gid_; }
+    std::vector<uint32_t> Gids() { return gids_; }
+
     std::shared_ptr<Configure> cfg;
     std::shared_ptr<VFS> vfs;
+
+    std::shared_ptr<Mapping> m_;
+    std::string user_;
+    std::string group_;
+    std::string superUser_;
+    std::string superGroup_;
+    uint32_t uid_;
+    uint32_t gid_;
+    std::vector<uint32_t> gids_;
+    uint16_t umask_;
 };
 
 #endif  // __cplusplus
@@ -50,6 +72,20 @@ extern "C" {
 #endif
 
 uintptr_t curvefs_create();
+
+int curvefs_set_permission(uintptr_t instance_ptr,
+                    const char* name,
+                    const char* user,
+                    const char* grouping);
+
+int curvefs_update_uid_grouping(uintptr_t instance_ptr, 
+                                const char* uidStr,
+                                const char* grouping);
+
+int curvefs_setowner(uintptr_t instance_ptr,
+                    const char* path,
+                    const char* owner,
+                    const char* group);
 
 // NOTE: instance_ptr is the pointer of CurveFSMount instance.
 void conf_set(uintptr_t instance_ptr, const char* key, const char* value);

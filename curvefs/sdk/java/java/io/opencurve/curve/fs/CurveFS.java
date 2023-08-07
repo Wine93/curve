@@ -26,6 +26,9 @@ public class CurveFS {
     private long cInstancePtr;
 
     private static native long nativeCurveFScreate();
+    private static native int nativeCurveFSSetUserGroupName(long cInstancePtr, String name, String user, String group, String superuser, String supergroup);
+    private static native int nativeCurveFSUpdateUidAndGrouping(long cInstancePtr, String uidStr, String grouping);
+    private static native int nativeSetOwner(long cInstancePtr, String path, String user, String group);
     private static native int nativeCurveFSMount(long cInstancePtr);
     private static native int nativeCurveFSMkdir(long cInstancePtr, String path, int mode);
     private static native int nativeCurveFSRmdir(long cInstancePtr, String path);
@@ -36,6 +39,21 @@ public class CurveFS {
 
     public CurveFS() {
         cInstancePtr = nativeCurveFScreate();
+    }
+
+    // init->nativeCurveFSSetUserGroupName->(libcurvefs)curvefs_set_uid_grouping->(vfs)setGUid
+    public void init(String name, String user, String group, String superuser, String supergroup) {
+        nativeCurveFSSetUserGroupName(cInstancePtr, name, user, group, superuser, supergroup);
+    }
+
+    // updateUidAndGrouping->nativeCurveFSUpdateUidAndGrouping->(libcurvefs curvefs_update_uid_and_grouping)->(vfs)setGuid
+    public void updateUidAndGrouping(String uidStr, String grouping) {
+        nativeCurveFSUpdateUidAndGrouping(cInstancePtr, uidStr, grouping);
+    }
+
+    // setowner->nativeSetOwner->(libcurvefs curvefs_setowner)->(vfs)Chown
+    public void setowner(String path, String user, String group) {
+        nativeSetOwner(cInstancePtr, path, user, group);
     }
 
     public void mount() {

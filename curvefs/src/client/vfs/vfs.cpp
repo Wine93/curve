@@ -39,6 +39,19 @@ namespace vfs {
 
 using ::curvefs::client::filesystem::EntryOut;
 using ::curvefs::client::filesystem::IsSymlink;
+using ::curvefs::client::common::PermissionOption;
+
+int VFS::SetPermission(uint32_t uid, 
+                    const std::vector<std::string>& gids, 
+                    uint16_t umask,
+                    bool needCheck) {
+    uid_ = uid;
+    gids_ = gids;
+    PermissionOption option(uid, gids, umask, needCheck);
+    permission_ = Permission(option);
+
+    return SysErr(CURVEFS_ERROR::OK);
+}
 
 int VFS::Mount(const std::string& fsname
                const std::string& mountpoint,
@@ -281,6 +294,14 @@ int VFS::FStat(int fd, struct stat* stat) {
     return SysErr(rc);
 }
 
+int VFS::Chown(const std::string &path, uint32_t uid, uint32_t gid) {
+    CURVEFS_ERROR rc;
+    AccessLogGuard log([&](){
+        return StrFormat("chown (%d): %s", fd, StrErr(rc));
+    });
+    // TODO:
+}
+
 CURVEFS_ERROR VFS::
 
 CURVEFS_ERROR VFS::Lookup(const std::string& pathname,
@@ -291,17 +312,17 @@ CURVEFS_ERROR VFS::Lookup(const std::string& pathname,
     EntryOut entryOut;
     std::vector<std::string> names = SplitPath(pathname);
     for (int i = 0; i < names.size(); i++) {  // recursive lookup entry
-        auto rc = permission_->Check(parent);
-        if (rc != CURVEFS_ERROR::OK) {
-            return rc;
-        }
-
         Ino ino;
         bool yes = entryCache_->Get(parent, name, &ino);
         if (yes) {
 
             yes = attrCache_->Get(ino, &attr);
             if (!)
+        }
+
+        auto rc = permission_->Check(parent, ModeMask::WANT_EXEC, &attr);
+        if (rc != CURVEFS_ERROR::OK) {
+            return rc;
         }
 
 
