@@ -14,6 +14,8 @@ public class CurveStat {
     public long blocks;
     public long a_time;
     public long m_time;
+    public String owner;
+    public String group;
 
     public boolean isFile() {
         return is_file;

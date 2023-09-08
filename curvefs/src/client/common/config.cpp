@@ -299,12 +299,12 @@ void InitVFSOption(Configuration* c, VFSOption* option) {
         c->GetValueFatalIfFail("vfs.entryCache.lruSize", &o->entryCacheLruSize);
         c->GetValueFatalIfFail("vfs.attrCache.lruSize", &o->attrCacheLruSize);
     }
-    {  // permission option
-        auto o = &option->permissionOption;
-        c->GetValueFatalIfFail("vfs.permission.users", &o->users);
-        c->GetValueFatalIfFail("vfs.permission.groups", &o->groups);
-        c->GetValueFatalIfFail("vfs.permission.umask", &o->umask);  // FIXME: x
-    }
+    // {  // permission option
+    //     auto o = &option->permissionOption;
+    //     c->GetValueFatalIfFail("vfs.permission.users", &o->users);
+    //     c->GetValueFatalIfFail("vfs.permission.groups", &o->groups);
+    //     c->GetValueFatalIfFail("vfs.permission.umask", &o->umask);  // FIXME: x
+    // }
 }
 
 void InitFileSystemOption(Configuration* c, FileSystemOption* option) {

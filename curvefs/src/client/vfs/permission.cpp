@@ -17,7 +17,7 @@
 /*
  * Project: Curve
  * Created Date: 2023-07-04
- * Author: Jingli Chen (Wine93)
+ * Author: caoxianfei1
  */
 
 #include "curvefs/src/client/vfs/meta.h"
@@ -30,10 +30,36 @@ namespace vfs {
 Permission::Permission(PermissionOption option)
     : option_(option) {}
 
-bool Permission::Check(Ino ino, const std::string& name) {
+bool Permission::Check(Ino ino, ModeMask mmask, InodeAttr* attr) {
+    if (!option_.needCheck) {
+		return true;
+	}
+    uint32_t mode = accessMode(attr, option_.uid, option_.gids);
+    if ((mode & mmask) != mmask){
+        return false;
+    }
     return true;
+}
+
+uint32_t Permission::accessMode(InodeAttr *attr, 
+                    uint32_t uid, 
+                    const std::vector<uint32_t>& gids) {
+    if (uid == 0) {
+        return 0x7;
+    }
+    uint32_t mode = attr->mode();
+    if (uid == attr->uid()) {
+        return (mode >> 6) & 7;
+    }
+    for (const auto& gid : gids) {
+        if (gid == attr->gid()) {
+            return (mode >> 3) & 7;
+        }
+    }
+    return mode & 7;
 }
 
 }  // namespace vfs
 }  // namespace client
 }  // namespace curvefs
+

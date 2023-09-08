@@ -11,6 +11,8 @@ public class CurveMount {
     private static native void nativeCurveFSConfSet(long cInstancePtr, String key, String value);
     private static native int nativeCurveFSMount(long cInstancePtr, String fsname);
     private static native int nativeCurveFSUmount(long cInstancePtr);
+    private static native int nativeSetGuids(long cInstancePtr, String name, String user, String grouping, String superUser, String superGroup, short umask);
+    private static native int nativeUpdateGuids(long cInstancePtr, String uids, String grouping);
     // dir*
     private static native int nativeCurveFSMkDirs(long cInstancePtr, String path, int mode);
     private static native int nativeCurveFSRmDir(long cInstancePtr, String path);
@@ -24,6 +26,7 @@ public class CurveMount {
     private static native int nativeCurveFSClose(long cInstancePtr, int fd);
     private static native int nativeCurveFSUnlink(long cInstancePtr, String path);
     // others
+    private static native int nativeSetOwner(long cInstancePtr, String path, String username, String groupname);
     private static native int nativeCurveFSStatFS(long cInstancePtr, String path, CurveStatVFS statvfs);
     private static native int nativeCurveFSLstat(long cInstancePtr, String path, CurveStat stat);
     private static native int nativeCurveFSFStat(long cInstancePtr, int fd, CurveStat stat);
@@ -103,6 +106,18 @@ public class CurveMount {
         info("CurveMount");
         instance_ptr = nativeCurveFSCreate();
         initialized = true;
+    }
+    public int setguids(String name,
+                        String user, 
+                        String grouping,
+                        String superuser,
+                        String supergroup,
+                        short umask) {
+        return nativeSetGuids(instance_ptr, name, user, grouping, superuser, supergroup, umask);
+    }
+
+    public int updateguids(String uids, String grouping) {
+        return nativeUpdateGuids(instance_ptr, uids, grouping);
     }
 
     public void mount(String fsname, String fstype, Object option) {
@@ -207,6 +222,10 @@ public class CurveMount {
     public void rename(String src, String dst) throws IOException {
         info("rename", src.toString(), dst.toString());
         nativeCurveFSRename(instance_ptr, src, dst);
+    }
+
+    public int setowner(String path, String user, String group) throws IOException {
+        return nativeSetOwner(instance_ptr, path, user, group);
     }
 
     // dummy

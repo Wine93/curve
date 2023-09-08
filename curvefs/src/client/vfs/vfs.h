@@ -41,13 +41,18 @@ namespace vfs {
 
 using ::curve::common::Configuration;
 using ::curvefs::client::common::VFSOption;
+using ::curvefs::client::common::PermissionOption;
 
 // Must be synchronized with Fuse if changed.
 #define VFS_SET_ATTR_MODE  (1 << 0)
+#define VFS_SET_ATTR_UID   (1 << 1)
+#define VFS_SET_ATTR_GID   (1 << 2)
 
 class VFS {
  public:
     VFS();
+
+    CURVEFS_ERROR SetPermission(uint32_t uid, const std::vector<uint32_t>& gids, uint16_t umask, bool needCheck);
 
     // NOTE: |cfg| include all configures for client.conf
     CURVEFS_ERROR Mount(const std::string& fsname,
@@ -107,6 +112,11 @@ class VFS {
 
     CURVEFS_ERROR Rename(const std::string& oldpath,
                          const std::string& newpath);
+    
+    CURVEFS_ERROR Chown(const std::string& path,
+                         uint32_t uid,
+                         uint32_t gid);
+    
     // utility
     void Attr2Stat(InodeAttr* attr, struct stat* stat);
 
@@ -130,6 +140,16 @@ class VFS {
     std::shared_ptr<FileHandlers> handlers_;
     std::shared_ptr<EntryCache> entryCache_;
     std::shared_ptr<AttrCache> attrCache_;
+    PermissionOption psOption_;
+
+    static const int O_RDONLY_MASK = 1;
+    static const int O_RDWR_MASK = 2;
+    static const int O_APPEND_MASK = 4;
+    static const int O_CREAT_MASK = 8;
+    static const int O_TRUNC_MASK = 16;
+    static const int O_EXCL_MASK = 32;
+    static const int O_WRONLY_MASK = 64;
+    static const int O_DIRECTORY_MASK = 128;
 };
 
 }  // namespace vfs

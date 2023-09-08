@@ -81,6 +81,22 @@ JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSUmount
 
 /*
  * Class:     io_opencurve_curve_fs_CurveMount
+ * Method:    nativeSetGuids
+ * Signature: (JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;S)I
+ */
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeSetGuids
+  (JNIEnv *, jclass, jlong, jstring, jstring, jstring, jstring, jstring, jshort);
+
+/*
+ * Class:     io_opencurve_curve_fs_CurveMount
+ * Method:    nativeUpdateGuids
+ * Signature: (JLjava/lang/String;Ljava/lang/String;)I
+ */
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeUpdateGuids
+  (JNIEnv *, jclass, jlong, jstring, jstring);
+
+/*
+ * Class:     io_opencurve_curve_fs_CurveMount
  * Method:    nativeCurveFSMkDirs
  * Signature: (JLjava/lang/String;I)I
  */
@@ -158,6 +174,14 @@ JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSClose
  */
 JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSUnlink
   (JNIEnv *, jclass, jlong, jstring);
+
+/*
+ * Class:     io_opencurve_curve_fs_CurveMount
+ * Method:    nativeSetOwner
+ * Signature: (JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+ */
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeSetOwner
+  (JNIEnv *, jclass, jlong, jstring, jstring, jstring);
 
 /*
  * Class:     io_opencurve_curve_fs_CurveMount

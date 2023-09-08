@@ -92,7 +92,9 @@ static void setup_field_ids(JNIEnv* env) {
 
 static void fill_curvestat(JNIEnv* env,
                            jobject j_curvestat,
-                           struct stat* stat) {
+                           struct stat* stat, 
+                           jstring owner,
+                           jstring group) {
     env->SetIntField(j_curvestat, curvestat_mode_fid, stat->st_mode);
     env->SetIntField(j_curvestat, curvestat_uid_fid, stat->st_uid);
     env->SetIntField(j_curvestat, curvestat_gid_fid, stat->st_gid);
@@ -100,6 +102,17 @@ static void fill_curvestat(JNIEnv* env,
     env->SetLongField(j_curvestat, curvestat_blksize_fid, stat->st_blksize);
     env->SetLongField(j_curvestat, curvestat_blocks_fid, stat->st_blocks);
 
+    const char *c_owner = env->GetStringUTFChars(owner, NULL);
+    const char* c_group = env->GetStringUTFChars(group, NULL);
+
+    jclass curvestat_class = env->GetObjectClass(j_curvestat);
+    jfieldID owner_fid = env->GetFieldID(curvestat_class, "owner", "Ljava/lang/String;");
+    jfieldID group_fid = env->GetFieldID(curvestat_class, "group", "Ljava/lang/String;");
+    env->SetObjectField(j_curvestat, owner_fid, env->NewStringUTF(c_owner));
+    env->SetObjectField(j_curvestat, group_fid, env->NewStringUTF(c_group));
+
+    env->ReleaseStringUTFChars(owner, c_owner);
+    env->ReleaseStringUTFChars(group, c_group);
     // mtime
     uint64_t time = stat->st_mtim.tv_sec;
     time *= 1000;
@@ -267,6 +280,48 @@ JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSUmount
     return curvefs_umonut(instance);
 }
 
+// nativeSetGuids: curvefs_set_guids
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeSetGuids
+  (JNIEnv *env, jclass, jlong j_instance, jstring j_name, jstring j_user, jstring j_grouping, jstring j_superUser, jstring j_superGroup, jshort j_umask) {
+    uintptr_t instance = static_cast<uintptr_t>(j_instance);
+    const char* name = env->GetStringUTFChars(j_name, NULL);
+    const char* user = env->GetStringUTFChars(j_user, NULL);
+    const char* grouping = env->GetStringUTFChars(j_grouping, NULL);
+    const char* superUser = env->GetStringUTFChars(j_superUser, NULL);
+    const char* superGroup = env->GetStringUTFChars(j_superGroup, NULL);
+    uint16_t umask = static_cast<uint16_t>(j_umask);
+    auto defer = absl::MakeCleanup([&]() {
+        env->ReleaseStringUTFChars(j_name, name);
+        env->ReleaseStringUTFChars(j_user, user);
+        env->ReleaseStringUTFChars(j_grouping, grouping);
+        env->ReleaseStringUTFChars(j_superUser, superUser);
+        env->ReleaseStringUTFChars(j_superGroup, superGroup);
+    });
+
+    int rc = curvefs_set_guids(instance, name, user, grouping, superUser, superGroup, umask);
+    if (rc != 0) {
+        handle_error(env, rc);
+    }
+    return rc;
+}
+
+// nativeUpdateGuids: curvefs_update_guids
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeUpdateGuids
+  (JNIEnv *env, jclass, jlong j_instance, jstring j_uids, jstring j_grouping) {
+    uintptr_t instance = static_cast<uintptr_t>(j_instance);
+    const char* uids = env->GetStringUTFChars(j_uids, NULL);
+    const char* grouping = env->GetStringUTFChars(j_grouping, NULL);
+    auto defer = absl::MakeCleanup([&]() {
+        env->ReleaseStringUTFChars(j_uids, uids);
+        env->ReleaseStringUTFChars(j_grouping, grouping);
+    });
+    auto rc = curvefs_update_guids(instance, uids, grouping);
+    if (rc != 0) {
+        handle_error(env, rc);
+    }
+    return 0;
+}
+
 // nativeCurveFSMkDirs: curvefs_mkdirs
 JNIEXPORT jint
 JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSMkDirs
@@ -416,6 +471,25 @@ JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSUnlink
     return rc;
 }
 
+//  nativeSetOwner: curvefs_setowner
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeSetOwner
+  (JNIEnv *env, jclass, jlong j_instance, jstring j_path, jstring j_user, jstring j_group) {
+    uintptr_t instance = static_cast<uintptr_t>(j_instance);
+    const char* path = env->GetStringUTFChars(j_path, NULL);
+    const char* user = env->GetStringUTFChars(j_user, NULL);
+    const char* group = env->GetStringUTFChars(j_group, NULL);
+    auto defer = absl::MakeCleanup([&]() {
+        env->ReleaseStringUTFChars(j_path, path);
+        env->ReleaseStringUTFChars(j_user, user);
+        env->ReleaseStringUTFChars(j_group, group);
+    });
+    int rc = curvefs_setowner(instance, path, user, group);
+    if (rc != 0) {
+        handle_error(env, rc);
+    }
+    return rc;
+}
+
 // nativeCurveFSFStat: curvefs_fstat
 JNIEXPORT jint
 JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSFStat
@@ -431,7 +505,12 @@ JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSFStat
         return rc;
     }
 
-    fill_curvestat(env, j_curvestat, &stat);
+    // get owner & group
+    std::string owner = curvefs_lookup_owner(instance, stat.st_uid);
+    std::string group = curvefs_lookup_group(instance, stat.st_gid);
+    jstring jowner = env->NewStringUTF(owner.c_str());
+    jstring jgroup = env->NewStringUTF(group.c_str());
+    fill_curvestat(env, j_curvestat, &stat, jowner, jgroup);
     return rc;
 }
 
@@ -472,7 +551,13 @@ JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeCurveFSLstat
         return rc;
     }
 
-    fill_curvestat(env, j_curvestat, &stat);
+    // get owner & group
+    std::string owner = curvefs_lookup_owner(instance, stat.st_uid);
+    std::string group = curvefs_lookup_group(instance, stat.st_gid);
+    jstring jowner = env->NewStringUTF(owner.c_str());
+    jstring jgroup = env->NewStringUTF(group.c_str());
+    
+    fill_curvestat(env, j_curvestat, &stat, jowner, jgroup);
     return rc;
 }
 

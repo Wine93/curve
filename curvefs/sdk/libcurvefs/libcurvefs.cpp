@@ -32,6 +32,184 @@ static curvefs_mount_t* get_instance(uintptr_t instance_ptr) {
     return reinterpret_cast<curvefs_mount_t*>(instance_ptr);
 }
 
+bool curvefs_mount_t::checkPermission() {
+    return true;
+}
+
+bool curvefs_mount_t::isSuperUser(const std::string user, 
+                    const std::vector<std::string> groups) {
+    if (user == superUser_) {
+		return true;
+	}
+	for (const auto& g : groups) {
+		if (g == superGroup_) {
+			return true;
+		}
+	}
+	return false;
+}
+
+uint32_t curvefs_mount_t::lookupUid(std::string user) {
+    if (user == superUser_) {
+        return 0;
+    }
+    return m_->lookupUser(user);
+}
+
+uint32_t curvefs_mount_t::lookupGid(std::string group) {
+    if (group == superGroup_) {
+        return 0;
+    }
+    return m_->lookupGroup(group);
+}
+
+std::string curvefs_mount_t::uid2name(uint32_t uid) {
+    std::string name = superUser_;
+    if (uid > 0) {
+        name = m_->lookupUserID(uid); 
+    }
+    return name;
+}
+
+std::string curvefs_mount_t::gid2name(uint32_t gid) {
+    std::string name = superGroup_;
+    if (gid > 0) {
+        name = m_->lookupGroupID(gid);
+    }
+    return name;
+}
+
+std::vector<uint32_t> curvefs_mount_t::lookupGids(const std::vector<std::string>& groups) {
+    std::vector<uint32_t> gids;
+    for (auto &group : groups) {
+        gids.push_back(lookupGid(group));
+    }
+    return gids;
+}
+
+int curvefs_set_guids(uintptr_t instance_ptr, 
+                            const char* name,
+                            const char* user, 
+                            const char* grouping,
+                            const char* superuser,
+                            const char* supergroup,
+                            uint16_t umask) {
+    auto mount = get_instance(instance_ptr);
+    mount->user_ = user;
+    mount->group_ = grouping;
+    mount->superUser_ = superuser;
+    mount->superGroup_ = supergroup;
+    mount->umask_ = umask;
+
+    mount->m_ = std::make_shared<Mapping>(Mapping::newMapping(name));
+    std::vector<std::string> groups;
+    std::stringstream ss(grouping);
+    std::string item;
+    while (std::getline(ss, item, ',')) {
+        groups.push_back(item);
+    }
+
+    if (mount->isSuperUser(user, groups)) {
+        mount->uid_ = 0;
+        mount->gid_ = 0;
+        mount->gids_ = std::vector<uint32_t>{0};
+    } else {
+        mount->uid_ = mount->lookupUid(user);
+        mount->gids_ = mount->lookupGids(groups);
+        if (!mount->gids_.empty()) {
+            mount->gid_ = mount->gids_[0];
+        }
+    }
+    auto rc = mount->vfs->SetPermission(mount->uid_, mount->gids_, mount->umask_, mount->checkPermission());
+    return SysErr(rc);
+}
+
+int curvefs_update_guids(uintptr_t instance_ptr, 
+                            const char* uidStr,
+                            const char* grouping) {
+    auto mount = get_instance(instance_ptr);
+
+    std::vector<pwent> uids;
+    std::istringstream iss(uidStr);
+    std::string line;
+    if (uidStr != nullptr) {
+        while (std::getline(iss, line)) {
+            std::vector<std::string> fields;
+            std::string token;
+            std::istringstream line_iss(line);
+            while (std::getline(line_iss, token, ':')) {
+                fields.push_back(token);
+            }
+            if (fields.size() < 2) {
+                continue;
+            }
+            std::string username = fields[0];
+            uint32_t uid = std::stoul(fields[1]);
+            uids.push_back(pwent{uid, username});
+        }
+    }
+    
+    std::vector<pwent> gids;
+    std::vector<std::string> groups;
+    iss = std::istringstream(grouping);
+    if (grouping != nullptr) {
+        while (std::getline(iss, line)) {
+            std::vector<std::string> fields;
+            std::string token;
+            std::istringstream line_iss(line);
+            while (std::getline(line_iss, token, ':')) {
+                fields.push_back(token);
+            }
+            if (fields.size() < 2) {
+                continue;
+            }
+            std::string gname = fields[0];
+            uint32_t gid = std::stoul(fields[1]);
+            gids.push_back(pwent{gid, gname});
+            if (fields.size() > 2) {
+                std::string user;
+                std::istringstream user_iss(fields.back());
+                while (std::getline(user_iss, user, ',')) {
+                    if (user == mount->user_) {
+                        groups.push_back(gname);
+                    }
+                }
+            }
+        }
+    }
+    
+    mount->m_->update(uids, gids, false);
+    mount->uid_ = mount->lookupUid(mount->user_);
+    if (!groups.empty()) {
+        mount->gids_ = mount->lookupGids(groups);
+    }
+    auto rc = mount->vfs->SetPermission(mount->uid_, mount->gids_, mount->umask_, mount->checkPermission());
+    return SysErr(rc);
+}
+
+int curvefs_setowner(uintptr_t instance_ptr,
+                    const char* path,
+                    const char* user,
+                    const char* group) {
+    auto mount = get_instance(instance_ptr);
+    struct stat stat;
+    auto rc = mount->vfs->LStat(path, &stat);
+    if (rc != CURVEFS_ERROR::OK) {
+        return SysErr(rc);
+    }
+    uint32_t uid = stat.st_uid;
+    uint32_t gid = stat.st_gid;
+
+    if (user != nullptr) {
+        uid = mount->lookupUid(user);
+    }
+    if (group != nullptr) {
+        gid = mount->lookupGid(group);
+    }
+    rc = mount->vfs->Chown(path, uid, gid);
+    return SysErr(rc);
+}
+
 uintptr_t curvefs_create() {
     auto mount = new curvefs_mount_t();
     mount->cfg = Configure::Default();
@@ -235,4 +413,14 @@ int curvefs_rename(uintptr_t instance_ptr,
     auto mount = get_instance(instance_ptr);
     auto rc = mount->vfs->Rename(oldpath, newpath);
     return SysErr(rc);
+}
+
+std::string curvefs_lookup_owner(uintptr_t instance_ptr, uint32_t uid) {
+    auto mount = get_instance(instance_ptr);
+    return mount->uid2name(uid);
+}
+
+std::string curvefs_lookup_group(uintptr_t instance_ptr, uint32_t gid) {
+    auto mount = get_instance(instance_ptr);
+    return mount->gid2name(gid);
 }

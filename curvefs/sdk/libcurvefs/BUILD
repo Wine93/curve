@@ -21,6 +21,8 @@ cc_binary(
     srcs = [
         "libcurvefs.h",
         "libcurvefs.cpp",
+        "guid.h",
+        "guid.cpp",
     ],
     copts = CURVE_DEFAULT_COPTS,
     visibility = ["//visibility:public"],
@@ -39,6 +41,8 @@ cc_library(
     srcs = [
         "libcurvefs.h",
         "libcurvefs.cpp",
+        "guid.h",
+        "guid.cpp",
     ],
     copts = CURVE_DEFAULT_COPTS,
     visibility = ["//visibility:public"],
