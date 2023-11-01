@@ -150,6 +150,7 @@ class FileSystem {
     std::shared_ptr<AttrWatcher> attrWatcher_;
     std::shared_ptr<HandlerManager> handlerManager_;
     std::shared_ptr<RPCClient> rpc_;
+    std::shared_ptr<Replyer> replyer_;
 };
 
 }  // namespace filesystem

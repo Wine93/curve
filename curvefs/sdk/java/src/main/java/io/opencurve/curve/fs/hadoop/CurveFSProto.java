@@ -24,8 +24,9 @@ package io.opencurve.curve.fs.hadoop;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import io.opencurve.curve.fs.libfs.CurveFSStat;
 import io.opencurve.curve.fs.libfs.CurveFSStatVFS;
+import io.opencurve.curve.fs.libfs.CurveFSStat;
+import io.opencurve.curve.fs.libfs.CurveFsDirent;
 
 import java.io.IOException;
 import java.net.URI;
@@ -38,6 +39,7 @@ abstract class CurveFSProto {
     abstract void mkdirs(Path path, int mode) throws IOException;
     abstract void rmdir(Path path) throws IOException;
     abstract String[] listdir(Path path) throws IOException;
+    abstract int listdirplus(Path path, CurveFsDirent[] dirents, int size) throws IOException;
     // file*
     abstract int open(Path path, int flags, int mode) throws IOException;
     abstract long lseek(int fd, long offset, int whence) throws IOException;

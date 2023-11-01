@@ -65,7 +65,7 @@ class VFS {
 
     CURVEFS_ERROR OpenDir(const std::string& path, DirStream* stream);
 
-    CURVEFS_ERROR ReadDir(DirStream* stream, DirEntry* dirEntry);
+    CURVEFS_ERROR ReadDir(DirStream* stream, DirEntry[] entries, int n);
 
     CURVEFS_ERROR CloseDir(DirStream* stream);
 

@@ -1,5 +1,8 @@
-CurveFS Client Metadata Cache Design
+CurveFS FileSystem Design
 ===
+
+CurveFS Client Metadata Cache Design
+---
 
 ```
 +----------------+
@@ -48,7 +51,7 @@ CurveFS Client Metadata Cache Design
 * fuse layer should remeber the `mtime` of attribute while reply it to vfs layer.
 
 Cache Layer Level
-===
+---
 
 ```
 +-------------------------------------------------------+

@@ -40,6 +40,7 @@ FileSystem::FileSystem(FileSystemOption option, ExternalMember member)
                                                  openFiles_, dirCache_);
     handlerManager_ = std::make_shared<HandlerManager>();
     rpc_ = std::make_shared<RPCClient>(option.rpcOption, member);
+    replyer_ = std::make_shared<FuseReplyer>();
 }
 
 void FileSystem::Run() {

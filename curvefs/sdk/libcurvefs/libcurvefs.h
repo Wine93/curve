@@ -92,7 +92,8 @@ int curvefs_opendir(uintptr_t instance_ptr,
 
 ssize_t curvefs_readdir(uintptr_t instance_ptr,
                         dir_stream_t* dir_stream,
-                        dirent_t* dirent);
+                        dirent_t* dirent,
+                        int size);
 
 int curvefs_closedir(uintptr_t instance_ptr, dir_stream_t* dir_stream);
 

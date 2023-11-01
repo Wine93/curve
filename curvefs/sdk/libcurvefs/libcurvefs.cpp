@@ -106,7 +106,8 @@ int curvefs_opendir(uintptr_t instance_ptr,
 
 ssize_t curvefs_readdir(uintptr_t instance_ptr,
                         dir_stream_t* dir_stream,
-                        dirent_t* dirent) {
+                        dirent_t* dirent,
+                        int size) {
     DirEntry dirEntry;
     auto mount = get_instance(instance_ptr);
     DirStream* stream = reinterpret_cast<DirStream*>(dir_stream);
@@ -143,7 +144,7 @@ int curvefs_open(uintptr_t instance_ptr,
         }
     }
 
-    uint64_t fd;
+    uint64_t fd = 0;
     rc = mount->vfs->Open(path, flags, mode, &fd);
     if (rc != CURVEFS_ERROR::OK) {
         return SysErr(rc);
@@ -164,7 +165,7 @@ ssize_t curvefs_read(uintptr_t instance_ptr,
                      int fd,
                      char* buffer,
                      size_t count) {
-    size_t nread;
+    size_t nread = 0;
     auto mount = get_instance(instance_ptr);
     auto rc = mount->vfs->Read(fd, buffer, count, &nread);
     if (rc != CURVEFS_ERROR::OK) {

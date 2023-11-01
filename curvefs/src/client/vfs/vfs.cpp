@@ -209,7 +209,7 @@ CURVEFS_ERROR VFS::OpenDir(const std::string& path, DirStream* stream) {
     return rc;
 }
 
-CURVEFS_ERROR VFS::ReadDir(DirStream* stream, DirEntry* dirEntry) {
+CURVEFS_ERROR VFS::ReadDir(DirStream* stream, DirEntry[] d, int n) {
     uint64_t nread = 0;
     CURVEFS_ERROR rc;
     AccessLogGuard log([&](){
@@ -223,15 +223,22 @@ CURVEFS_ERROR VFS::ReadDir(DirStream* stream, DirEntry* dirEntry) {
         return rc;
     }
 
-    if (stream->offset >= entries->Size()) {
-        rc = CURVEFS_ERROR::END_OF_FILE;
-        return rc;
+    // FIXME(Wine93): read all entries by once.
+    for ( ; ; ) {
+        if (stream->offset >= entries->Size()) {
+            break;
+        } else if (nread >= n) {
+            break;
+        }
+
+        entries->At(stream->offset, dirEntry);
+        stream->offset++;
+        nread++;
     }
 
-    rc = CURVEFS_ERROR::OK;
-    entries->At(stream->offset, dirEntry);
-    stream->offset++;
-    nread = 1;
+    if (nread == 0) {
+        rc = CURVEFS_ERROR::END_OF_FILE;
+    }
     return rc;
 }
 
