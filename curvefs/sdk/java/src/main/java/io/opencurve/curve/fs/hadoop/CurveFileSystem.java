@@ -174,12 +174,10 @@ public class CurveFileSystem extends FileSystem {
             for (int i = 0; i < status.length; i++) {
                 status[i] = getFileStatus(new Path(path, dirlist[i]));
             }
-            curve.shutdown();
             return status;
         } else {
             throw new FileNotFoundException("File " + path + " does not exist.");
         }
-
     }
 
     @Override
