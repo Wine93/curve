@@ -166,6 +166,8 @@ class InodeCacheManagerImpl : public InodeCacheManager,
     CURVEFS_ERROR RefreshData(std::shared_ptr<InodeWrapper> &inode,  // NOLINT
                               bool streaming = true);
 
+    void HandleDefer(InodeAttr* attr);
+
  private:
     std::shared_ptr<MetaServerClient> metaClient_;
     std::shared_ptr<S3ChunkInfoMetric> s3ChunkInfoMetric_;

@@ -257,11 +257,6 @@ CURVEFS_ERROR FileSystem::Lookup(Ino parent,
 
 CURVEFS_ERROR FileSystem::GetAttr(Ino ino, AttrOut* attrOut) {
     InodeAttr attr;
-    if (!option_.cto && deferSync_->IsDefered(ino, &attr)) {
-        *attrOut = AttrOut(attr);
-        return CURVEFS_ERROR::OK;
-    }
-
     auto rc = rpc_->GetAttr(ino, &attr);
     if (rc == CURVEFS_ERROR::OK) {
         *attrOut = AttrOut(attr);

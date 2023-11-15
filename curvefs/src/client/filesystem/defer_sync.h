@@ -27,19 +27,49 @@
 #include <vector>
 #include <memory>
 
+#include "absl/container/btree_map.h"
 #include "src/common/interruptible_sleeper.h"
 #include "curvefs/src/client/common/config.h"
 #include "curvefs/src/client/filesystem/meta.h"
+#include "curvefs/src/client/filesystem/utils.h"
 
 namespace curvefs {
 namespace client {
 namespace filesystem {
 
+using ::curve::common::RWLock;
+using ::curve::common::Mutex;
+using ::curve::common::InterruptibleSleeper;
 using ::curvefs::client::common::DeferSyncOption;
 
-using ::curve::common::Mutex;
-using ::curve::common::LockGuard;
-using ::curve::common::InterruptibleSleeper;
+struct DeferAttr {
+    DeferAttr() = default;
+
+    explicit DeferAttr(const InodeAttr& attr) {
+        mtime = TimeSpec(attr.mtime(), attr.mtime_ns());
+        length = attr.length();
+    }
+
+    struct TimeSpec mtime;
+    uint64_t length;
+};
+
+class DeferInodes {
+ public:
+    bool Add(const std::shared_ptr<InodeWrapper>& inode);
+
+    bool Get(Ino ino, std::shared_ptr<InodeWrapper>* inode);
+
+    bool Remove(Ino ino);
+
+ private:
+    bool ModifiedSince(const std::shared_ptr<InodeWrapper>& now,
+                       const std::shared_ptr<InodeWrapper>& old);
+
+ private:
+    RWLock rwlock_;
+    absl::btree_map<Ino, std::shared_ptr<InodeWrapper>> inodes_;
+};
 
 class DeferSync {
  public:
@@ -51,9 +81,13 @@ class DeferSync {
 
     void Push(const std::shared_ptr<InodeWrapper>& inode);
 
-    bool IsDefered(Ino ino, InodeAttr* attr);
+    bool IsDefered(Ino ino, std::shared_ptr<InodeWrapper>* inode);
+
+    bool IsDefered(Ino ino, DeferAttr* attr);
 
  private:
+    void DoSync(const std::shared_ptr<InodeWrapper>& inode);
+
     void SyncTask();
 
  private:
@@ -62,7 +96,8 @@ class DeferSync {
     std::atomic<bool> running_;
     std::thread thread_;
     InterruptibleSleeper sleeper_;
-    std::vector<std::shared_ptr<InodeWrapper>> inodes_;
+    std::shared_ptr<DeferInodes> inodes_;
+    std::vector<std::shared_ptr<InodeWrapper>> pending_;
 };
 
 }  // namespace filesystem

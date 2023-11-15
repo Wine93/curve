@@ -30,14 +30,57 @@ namespace curvefs {
 namespace client {
 namespace filesystem {
 
+using ::curve::common::LockGuard;
+using ::curve::common::ReadLockGuard;
+using ::curve::common::WriteLockGuard;
+
+bool DeferInodes::ModifiedSince(const std::shared_ptr<InodeWrapper>& now,
+                                const std::shared_ptr<InodeWrapper>& old) {
+    return true;
+}
+
+bool DeferInodes::Add(const std::shared_ptr<InodeWrapper>& inode) {
+    WriteLockGuard lk(rwlock_);
+    auto ret = inodes_.emplace(inode->GetInodeId(), inode);
+    auto iter = ret.first;
+    bool yes = ret.second;
+    if (yes) {  // not found, insert success
+        return true;
+    } else if (ModifiedSince(inode, iter->second)) {  // already exist
+        iter->second = inode;
+        return true;
+    }
+    return false;
+}
+
+bool DeferInodes::Get(Ino ino, std::shared_ptr<InodeWrapper>* inode) {
+    ReadLockGuard lk(rwlock_);
+    auto iter = inodes_.find(ino);
+    if (iter == inodes_.end()) {
+        return false;
+    }
+    *inode = iter->second;
+    return true;
+}
+
+bool DeferInodes::Remove(Ino ino) {
+    WriteLockGuard lk(rwlock_);
+    auto iter = inodes_.find(ino);
+    if (iter == inodes_.end()) {
+        return false;
+    }
+    inodes_.erase(iter);
+    return true;
+}
+
 DeferSync::DeferSync(DeferSyncOption option)
     : option_(option),
       mutex_(),
       running_(false),
       thread_(),
       sleeper_(),
-      inodes_() {
-}
+      inodes_(std::make_shared<DeferInodes>()),
+      pending_() {}
 
 void DeferSync::Start() {
     if (!running_.exchange(true)) {
@@ -55,20 +98,26 @@ void DeferSync::Stop() {
     }
 }
 
+void DeferSync::DoSync(const std::shared_ptr<InodeWrapper>& inode) {
+    UniqueLock lk(inode->GetUniqueLock());
+    inode->Async(nullptr, true);
+}
+
 void DeferSync::SyncTask() {
-    std::vector<std::shared_ptr<InodeWrapper>> inodes;
+    std::vector<std::shared_ptr<InodeWrapper>> syncing;
     for ( ;; ) {
         bool running = sleeper_.wait_for(std::chrono::seconds(option_.delay));
 
         {
             LockGuard lk(mutex_);
-            inodes.swap(inodes_);
+            syncing.swap(pending_);
         }
-        for (const auto& inode : inodes) {
-            UniqueLock lk(inode->GetUniqueLock());
-            inode->Async(nullptr, true);
+        for (const auto& inode : syncing) {
+            DoSync(inode);
+            inodes_->Remove(inode->GetInodeId());
+            LOG(ERROR) << "<<<< ino = " << inode->GetInodeId() << " has synced";
         }
-        inodes.clear();
+        syncing.clear();
 
         if (!running) {
             break;
@@ -77,19 +126,27 @@ void DeferSync::SyncTask() {
 }
 
 void DeferSync::Push(const std::shared_ptr<InodeWrapper>& inode) {
+    inodes_->Add(inode);
     LockGuard lk(mutex_);
-    inodes_.emplace_back(inode);
+    pending_.emplace_back(inode);
 }
 
-bool DeferSync::IsDefered(Ino ino, InodeAttr* attr) {
-    LockGuard lk(mutex_);
-    for (const auto& inode : inodes_) {
-        if (inode->GetInodeId() == ino) {
-            inode->GetInodeAttr(attr);
-            return true;
-        }
+// xxxx: only for nocto scenario
+bool DeferSync::IsDefered(Ino ino, std::shared_ptr<InodeWrapper>* inode) {
+    return inodes_->Get(ino, inode);
+}
+
+bool DeferSync::IsDefered(Ino ino, DeferAttr* attr) {
+    std::shared_ptr<InodeWrapper> inode;
+    bool yes = inodes_->Get(ino, &inode);
+    if (yes) {
+        return false;
     }
-    return false;
+
+    InodeAttr out;
+    inode->GetInodeAttr(&out);
+    *attr = DeferAttr(out);
+    return true;
 }
 
 }  // namespace filesystem
